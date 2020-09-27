@@ -1,1 +1,1 @@
-IMAGES_DICT
+get_keyword

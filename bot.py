@@ -5,6 +5,7 @@ import pprint
 from pyfiglet import Figlet
 from pynput.mouse import Listener as MouseListener
 from pytesseract import image_to_string
+from fuzzywuzzy import fuzz, process
 from PIL import Image
 import win32gui
 import numpy as np
@@ -23,18 +24,67 @@ def main():
 	alphabet = Alphabet()
 	pp = pprint.PrettyPrinter(indent=2)
 	#hwnd = get_focused_window_handle()
-	#window_capture = WindowCapture(hwnd)
+	hwnd = win32gui.FindWindow(None, 'BlueStacks')
+	window_capture = WindowCapture(hwnd)
 
-	# start_countdown(3)
-
-	screenshot = cv2.imread("assets/samples/mainSample.png", cv2.IMREAD_GRAYSCALE)
-	keyword_chars = get_keyword_chars(screenshot, debug)
+	#start_countdown(3)
+	
+	#screenshot = cv2.imread("assets/samples/mainSample.png", cv2.IMREAD_GRAYSCALE)
+	screenshot = window_capture.get_screenshot()
+	keyword = get_keyword(screenshot, debug)
 	matrix_chars = get_matrix_chars(screenshot, pp, debug)
 
+	fuzzyFinder = FuzzyFinder()
+	fuzzyFinder.find(matrix_chars, keyword)
 	cv2.waitKey()
 
+class FuzzyFinder:
+	def __init__(self):
+		self.COLUMNS_INDEX = ['-','A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z']
 
-def get_keyword_chars(screenshot, debug=False):
+
+	def __get_possible_words(self, matrix, word):
+		lword = len(word)
+		nrows = len(matrix)
+		ncols = len(matrix[0])
+		
+		# dir left to right
+		words_left_to_right = []
+		for i in range(nrows):
+			for j in range(ncols - lword + 1):
+				words_left_to_right.append(((i+1, j+1),(i + 1, j + lword), matrix[i][j:j+lword]))
+
+		# Transpose Matrix
+		matrix_trans = list(zip(*matrix))
+		for i, row in enumerate(matrix_trans):
+			matrix_trans[i] = ''.join(row)
+		nrows = len(matrix_trans)
+		ncols = len(matrix_trans[0])
+
+		# dir up to down
+		words_up_to_down = []
+		for i in range(nrows):
+			for j in range(ncols - lword + 1):
+				words_up_to_down.append(((j + 1, i + 1), (j + lword, i + 1), matrix_trans[i][j:j+lword]))
+
+		return words_left_to_right + words_up_to_down
+
+
+	def find(self, matrix, word):
+		possible_words = self.__get_possible_words(matrix, word)
+		best_result = process.extractOne(word, [possible_word for (start, end, possible_word) in possible_words])
+		for start, end, possible_word in possible_words:
+			if best_result[0] == possible_word:
+				start_pos = f'{self.COLUMNS_INDEX[start[1]]}{start[0]}'
+				end_pos = f'{self.COLUMNS_INDEX[end[1]]}{end[0]}'
+				print(f'Found word with {best_result[1]}% of accuracy: "{possible_word}", start: {start_pos}, end: {end_pos}')
+				return (start_pos, end_pos, possible_word)
+		else:
+			print('Word not found')
+			return False
+
+
+def get_keyword(screenshot, debug=False):
 	scrshot_w = screenshot.shape[1]
 	scrshot_h = screenshot.shape[0]
 
@@ -45,19 +95,16 @@ def get_keyword_chars(screenshot, debug=False):
 	
 	img = Image.fromarray(img)
 
-	text_list = image_to_string(img, lang='por', config='--psm 8 --oem 3 -c tessedit_char_whitelist=QWERTYUIOPASDFGHJKLZXCVBNM').split('\n')  # get text and split in array
+	text_list = image_to_string(img, config='--psm 8 --oem 3 -c tessedit_char_whitelist=QWERTYUIOPASDFGHJKLZXCVBNM').split('\n')  # get text and split in array
 	# text_list = [i for i in text_list if i.strip()] # Delete empty strings
 	keyword = max(text_list, key=len)  # Get the biggest string
-	keyword_chars = [char.upper() for char in list(keyword)]
-	#keyword_chars_set = set(keyword_chars)
+	#keyword_chars = [char.upper() for char in list(keyword)]
 	print("Keyword: ", keyword)
-	print("Keyword Array: ", keyword_chars)
-	#print("Keyword Set: ", keyword_chars_set)
 
 	if debug:
 		cv2.imshow('Keyword Position', screenshot)
 
-	return keyword_chars
+	return keyword
 
 
 def get_matrix_chars(screenshot, pprint, debug=False):
@@ -79,9 +126,9 @@ def get_matrix_chars(screenshot, pprint, debug=False):
 	for i, text in enumerate(text_list):
 		text_matrix.append([char for char in text])
 
-	pprint.pprint(text_matrix)
+	pprint.pprint(text_list)
 
-	return text_matrix
+	return text_list
 
 
 # region Helpers
@@ -118,8 +165,5 @@ def get_focused_window_handle():
 
 
 if __name__ == '__main__':
-	try:
-		print_logo('Caca Palavra Bot')
-		main()
-	except Exception as e:
-		print(str(e))
+	print_logo('Word Finder')
+	main()

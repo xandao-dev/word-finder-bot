@@ -2,6 +2,7 @@
 import time
 import re
 import pprint
+import sys
 from pyfiglet import Figlet
 from pynput.mouse import Listener as MouseListener
 from pytesseract import image_to_string
@@ -15,9 +16,6 @@ from assets.Assets import Alphabet
 from WindowCapture import WindowCapture
 # endregion
 
-#Confs & Paths
-debug = True
-
 
 def main():
 	# Instances
@@ -29,14 +27,21 @@ def main():
 
 	#start_countdown(3)
 	
-	#screenshot = cv2.imread("assets/samples/mainSample.png", cv2.IMREAD_GRAYSCALE)
 	screenshot = window_capture.get_screenshot()
-	keyword = get_keyword(screenshot, debug)
-	matrix_chars = get_matrix_chars(screenshot, pp, debug)
+	cv2.imwrite("screenshot.png", screenshot)
+	screenshot = cv2.imread("screenshot.png")
+
+	keyword = ''
+	if sys.argv[1]:
+		keyword = sys.argv[1]
+		print(keyword)
+	else:
+		keyword = get_keyword(screenshot, False)
+	matrix_chars = get_matrix_chars(screenshot, pp, False)
 
 	fuzzyFinder = FuzzyFinder()
 	fuzzyFinder.find(matrix_chars, keyword)
-	cv2.waitKey()
+	#cv2.waitKey()
 
 class FuzzyFinder:
 	def __init__(self):
@@ -126,7 +131,7 @@ def get_matrix_chars(screenshot, pprint, debug=False):
 	for i, text in enumerate(text_list):
 		text_matrix.append([char for char in text])
 
-	pprint.pprint(text_list)
+	#pprint.pprint(text_list)
 
 	return text_list
 

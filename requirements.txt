@@ -1,0 +1,6 @@
+pyfiglet>=0.8
+pynput>=1.7.6
+pytesseract>=0.3.8
+fuzzywuzzy>=0.18.0
+opencv-python>=4.5.4.58
+pywin32
